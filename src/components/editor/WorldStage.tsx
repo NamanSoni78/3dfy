@@ -183,7 +183,6 @@ export function WorldStage({
   /* Intentional manual memoization: the manager must rebuild ONLY when the
      world content changes (worldKey), not when atmosphere-only fields do. */
   const manager = useMemo(
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     () =>
       new ChunkManager(scene, world, {
         renderDistance: opts.renderDistance,
@@ -200,7 +199,6 @@ export function WorldStage({
 
   /* MobSystem rebuilds with the manager (it samples terrain heights). */
   const mobs = useMemo(
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     () => new MobSystem(scene, world, (x: number, z: number) => manager.heightAt(x, z)),
     [scene, worldKey, manager],
   );
@@ -220,10 +218,23 @@ export function WorldStage({
     spawnedFor.current = worldKey;
     const cam = camera as THREE.PerspectiveCamera;
     const y = manager.heightAt(0, 0);
-    cam.position.set(0, y + 9, 0);
-    cam.rotation.set(-0.25, 0, 0, "YXZ");
-    const c = controlsRef.current;
-    if (c?.target) c.target.set(0, y + 1.5, -7);
+    /* spawn feel: eyes above the ground, looking at the horizon — new
+       objects ("spawn in front") then appear at eye level, dead center */
+    const eye = y + 2.4;
+    cam.position.set(0, eye, 0);
+    cam.rotation.set(0, 0, 0, "YXZ");
+    /* OrbitControls may mount after this effect — retry a few frames until
+       the controls exist, then aim the orbit target down-range */
+    let tries = 0;
+    const aim = () => {
+      const c = controlsRef.current;
+      if (c?.target) {
+        c.target.set(0, eye - 0.7, -22);
+      } else if (tries++ < 30) {
+        requestAnimationFrame(aim);
+      }
+    };
+    aim();
   }, [worldKey, manager, camera]);
 
   /* PMREM environment (reflections) — generated from the sky dome once */

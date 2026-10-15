@@ -17,6 +17,10 @@ export const objectRefs = new Map<string, THREE.Object3D>();
 /** Live OrbitControls instance (for keyframe capture & go-to). */
 export const controlsRef: { current: { target: THREE.Vector3 } | null } = { current: null };
 
+/** Live camera (kept fresh by the EditorScene capture bridge) — powers
+ *  spawn-in-front placement for newly added objects. */
+export const cameraRef: { current: THREE.PerspectiveCamera | null } = { current: null };
+
 export const pendingSpawn = {
   point: null as [number, number, number] | null,
 };
@@ -91,6 +95,31 @@ export function saveLookPrefs(): void {
 }
 
 /* ------------------------------ helpers -------------------------------- */
+
+/**
+ * A point a few meters IN FRONT of the camera — where new objects spawn so
+ * they are immediately visible, no matter how far the user has flown.
+ * `radius` ≈ half the object's size → spawn distance scales with the object
+ * (a tiny star sits close, a hero desk sits further out).
+ *
+ * In world projects the point is also lifted above the terrain so it can
+ * never spawn buried inside a hill.
+ */
+export function spawnPointInFront(radius = 1.1): [number, number, number] {
+  const cam = cameraRef.current;
+  if (!cam) return [0, 0.9, 0];
+  const dir = cam.getWorldDirection(new THREE.Vector3());
+  if (dir.lengthSq() < 1e-8) dir.set(0, 0, -1);
+  const dist = THREE.MathUtils.clamp(radius * 2.7, 2.6, 16);
+  const p = cam.position.clone().addScaledVector(dir, dist);
+
+  const mgr = worldRuntime.manager as { heightAt?: (x: number, z: number) => number } | null;
+  if (mgr && typeof mgr.heightAt === "function") {
+    const h = mgr.heightAt(p.x, p.z);
+    if (Number.isFinite(h)) p.y = Math.max(p.y, h + Math.max(0.5, radius * 0.75));
+  }
+  return [p.x, p.y, p.z];
+}
 
 /**
  * Frame an object in the camera view (bounding-sphere accurate, works on

@@ -7,7 +7,7 @@ import { Grid, OrbitControls, Stars, TransformControls } from "@react-three/drei
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useEditor, MAX_DURATION } from "@/lib/editor/store";
 import { findParticleConfig } from "@/lib/editor/defaults";
-import { objectRefs, setPendingSpawn, controlsRef, registerHelper, renderDriver, gizmoDrag, flyState, lookState } from "@/lib/editor/runtime";
+import { objectRefs, setPendingSpawn, controlsRef, cameraRef, registerHelper, renderDriver, gizmoDrag, flyState, lookState } from "@/lib/editor/runtime";
 import { editorCapture, playback } from "@/lib/editor/render";
 import { sampleCamera } from "@/lib/editor/keyframes";
 import { WORLD_THEMES } from "@/lib/editor/defaults";
@@ -547,6 +547,7 @@ function CaptureBridge() {
     editorCapture.scene = state.scene;
     editorCapture.camera = state.camera as THREE.PerspectiveCamera;
     editorCapture.root = state;
+    cameraRef.current = state.camera as THREE.PerspectiveCamera;
   }, [state]);
   return null;
 }

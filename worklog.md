@@ -114,3 +114,23 @@ Stage Summary:
 - /world is now the flagship: infinite AI world + the complete studio + frame-perfect rendering, with mobs, custom lights, reflections, walk/fly physics and AI-importable custom-mesh props.
 - Docs realigned: plan.md (V1.5 architecture + both format specs v2), bugfix.md (18 entries), worklog.md (this file).
 - Final deliverable: download/3dfyV1.5.zip — full project + the 3 markdowns.
+
+---
+Task ID: 6
+Agent: Super Z (main agent)
+Task: V1.6 production-release fixes per user's 3dfyV1.5.zip test report: AI-imported "Ultimate Pro PC Rig" (3dsc-2, mesh+gear+ring+capsule mix) spawned as an entity but was invisible; new objects must spawn in front of the camera; repo going PUBLIC and hosting at 3dfy.namansoni.in (verify all wiring); final production zip.
+
+Work Log:
+- DIAGNOSED the invisible import (bugfix #19): three's mergeGeometries returns null when indexed geometries (box/cylinder/ring/capsule/mesh parts) are mixed with non-indexed ones (gear/star/heart = ExtrudeGeometry) → buildShapeGeometry() = null → ShapeView rendered nothing while the entity existed. The user's 44-part PC rig has 4 gear parts — guaranteed null. Reproduced with a raw box+gear pair in a bun unit test (three itself printed the mixed-indexed error).
+- FIXED build.ts v2.1 "THE MERGE RULE": all parts normalized to NON-INDEXED before merge — mesh parts expanded to explicit triangles with per-face colors baked per triangle (crisp boundaries, flat faceted normals); primitives via toNonIndexed() with uv deleted + flat tint color; every part carries exactly {position, normal, color} so mergeGeometries can never bail again.
+- SPAWN-IN-FRONT (bugfix #20): runtime.ts gains cameraRef (fed by CaptureBridge) + spawnPointInFront(radius) — view-direction point at clamp(r*2.7, 2.6, 16)m, terrain-lifted via worldRuntime.manager.heightAt; long-press placement still wins. Wired into AddMenuPanel (per-kind radius) and ImportShapeDialog (estimateRadius(parts)*1.4 for size-aware distance).
+- WORLD ENTRY CAMERA (bugfix #21): WorldStage now spawns at eye level y+2.4 with a horizon target [0, eye-0.7, -22] and rAF-retries until controlsRef mounts (was y+9 looking near-vertically down; made top-down text read as "pink blocks" and degenerated spawn-in-front).
+- QA tooling (bugfix #22): IIFE-wrapped agent-browser evals (shared scope!), DOM-dispatch clicks for sheet tiles (find-text coordinate flakiness), dev-server-per-invocation pattern (sandbox reaps background procs), and a dev-only window.__3dfyStore/__3dfyProbe/__3dfySpawn hook in EditorApp for live-state ground truth.
+- PRODUCTION WIRING for 3dfy.namansoni.in: layout.tsx metadataBase + worlds-first SEO copy; robots.ts sitemap URL; manifest.ts name/description + dark studio colors (#0e1116) + any-orientation; package.json → name "3dfy", version 1.6.0, description, portable node start script. No localhost/3dfy.app references remain (grep-verified).
+- VERIFICATION: bun unit test (scripts/test-shape-build.ts) — PC rig: 32,556 verts, bbox 3.92×2.00×1.62, neon cyan+pink vertex colors, Gem Rocket/pure-gear/pure-primitive regressions green, root-cause repro included. Browser (agent-browser + VLM): PC rig imports VISIBLE in both studios (desk, monitor w/ pink screen, tower w/ cyan strip, speakers; "no glitches"); text spawns centered ahead readable as HELLO (store probe [0,2.25,-4.59] vs camera [0,2.4,0]); world horizon entry verified; mobile 390px FAB add works, no overflow; home loads with new title; /3dfy + /make3d regression clean; zero page errors, zero console errors (only benign drei THREE.Clock warning).
+- Gates: eslint 0/0 (removed 2 stale disable directives), tsc clean, production build success (11 routes).
+
+Stage Summary:
+- User-reported blockers fixed and visually verified; all V1.5 features regression-checked.
+- Docs realigned: bugfix.md (22 entries), worklog.md (this file), plan.md (V1.6 changelog + hosting section).
+- Final deliverable: download/3dfyV1.6.zip — full project + the 3 markdowns + README + shape regression test, ready for the public repo and 3dfy.namansoni.in.

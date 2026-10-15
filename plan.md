@@ -1,6 +1,6 @@
-# 3Dfy — V1.5 Plan & Architecture
+# 3Dfy — V1.6 Plan & Architecture (production)
 
-> Complete context package for 3Dfy **V1.5**. Read this first if you (or an AI)
+> Complete context package for 3Dfy **V1.6 (production)**. Read this first if you (or an AI)
 > want to extend the app. It records every feature, file, schema and design
 > decision that shipped, plus the open roadmap.
 >
@@ -280,3 +280,41 @@ No environment variables — fully client-side.
 6. Procedural ambience audio per world (wind/water/birds).
 7. Multi-select & grouping, snap-to-grid.
 8. PWA offline install + share-target for `.3dfy`.
+
+---
+
+## 8. V1.6 changelog (production release)
+
+Fixed after the user's 3dfyV1.5 field test (full detail in `bugfix.md` #19–#22):
+
+1. **AI imports that mix mesh + gear/star/heart parts no longer spawn
+   invisible** — the merge rule: every 3DSC part is normalized to a
+   non-indexed, vertex-colored geometry before `mergeGeometries`, so any
+   primitive combination renders (raw-mesh parts get per-face colors baked
+   per expanded triangle). Regression-tested in `scripts/test-shape-build.ts`
+   with the user's exact 44-part PC-rig import.
+2. **New objects spawn IN FRONT of the camera** (both studios, desktop +
+   mobile FAB) at a size-aware distance, terrain-lifted in worlds; long-press
+   exact placement still takes precedence.
+3. **World entry camera** looks at the horizon from eye level (was a
+   near-vertical top-down view) — objects added at spawn now sit dead-center
+   ahead at eye level.
+4. **Production wiring for the public repo + 3dfy.namansoni.in**: metadata
+   base, robots sitemap, web manifest, package identity (name/version/
+   description), portable `node .next/standalone/server.js` start.
+
+Deploy quick-start:
+
+```bash
+bun install            # or npm install
+bun run dev            # develop on :3000
+bun run build && npm start   # standalone production server
+```
+
+Vercel: import the repo — `output: "standalone"` in next.config is
+Vercel-compatible; add the `3dfy.namansoni.in` domain in project settings.
+VPS: `bun run build && npm start` behind any reverse proxy (the app is fully
+client-side — no env vars, no database required).
+
+QA probe (development builds only): `window.__3dfyStore` (zustand live
+state), `window.__3dfyProbe()` (camera + controls), `window.__3dfySpawn(r)`.

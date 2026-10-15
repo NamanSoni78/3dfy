@@ -6,10 +6,23 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { SHAPE_PROMPT, SAMPLE_SHAPE_CODE, parseShapeCode } from "@/lib/shapes/schema";
+import type { ShapePart } from "@/lib/shapes/schema";
 import { useEditor } from "@/lib/editor/store";
 import { makeCustomShape } from "@/lib/editor/defaults";
-import { pendingSpawn } from "@/lib/editor/runtime";
+import { pendingSpawn, spawnPointInFront } from "@/lib/editor/runtime";
 import { sfx, haptic } from "@/lib/audio";
+
+/** Rough half-size of an imported shape (positions + scales) → used to pick
+ *  a spawn distance that frames the whole object comfortably in front of you. */
+function estimateRadius(parts: ShapePart[]): number {
+  let r = 0.8;
+  for (const p of parts) {
+    const pr = Math.hypot(p.position[0], p.position[1], p.position[2]);
+    const s = Math.max(Math.abs(p.scale[0]), Math.abs(p.scale[1]), Math.abs(p.scale[2]), 0.5);
+    r = Math.max(r, pr + s);
+  }
+  return Math.min(r, 8);
+}
 
 /**
  * AI shape import — two steps:
@@ -44,8 +57,13 @@ export function ImportShapeDialog({ open, onOpenChange }: { open: boolean; onOpe
     }
     const { code: parsed, warnings } = res;
     const id = addCustomShape({ name: parsed.name, parts: parsed.parts });
-    const spawn = pendingSpawn.point ?? [0, 1.2, 0];
-    addObject(makeCustomShape(id, parsed.name, [spawn[0], spawn[1] + 0.4, spawn[2]]));
+    // long-press point wins; otherwise spawn IN FRONT of the camera at a
+    // distance scaled to the object's size (makeCustomShape uses scale 1.4)
+    const press = pendingSpawn.point;
+    const spawn: [number, number, number] = press
+      ? [press[0], press[1] + 0.4, press[2]]
+      : spawnPointInFront(estimateRadius(parsed.parts) * 1.4);
+    addObject(makeCustomShape(id, parsed.name, spawn));
     onOpenChange(false);
     setCode("");
     sfx.play("spawn");

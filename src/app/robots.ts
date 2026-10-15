@@ -4,6 +4,6 @@ export default function robots() {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://3dfy.app/sitemap.xml",
+    sitemap: "https://3dfy.namansoni.in/sitemap.xml",
   };
 }

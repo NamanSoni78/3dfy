@@ -11,9 +11,16 @@ import type { MeshData, ShapePart } from "./schema";
  * → a single draw call per object, cached by shape id (import once, reuse for
  * duplicates / undo / replay without rebuilding).
  *
- * v2: "mesh" parts carry raw vertex/face data — converted to an indexed
- * BufferGeometry (quads auto-split, fans supported) with optional per-face
- * colors. Meshes render double-sided (AI winding is not trustworthy).
+ * v2: "mesh" parts carry raw vertex/face data — converted to explicit
+ * triangles with optional per-face colors. Meshes render double-sided (AI
+ * winding is not trustworthy).
+ *
+ * v2.1 — THE MERGE RULE: three's mergeGeometries REFUSES to mix indexed and
+ * non-indexed geometries (gear/star/heart are ExtrudeGeometry = non-indexed;
+ * box/cylinder/mesh parts are indexed) and returns null — which made mixed
+ * imports like "4 gear wheels + mesh body" spawn as an entity with NO visible
+ * geometry. Every part is now normalized to NON-INDEXED before merging, so
+ * any primitive combination merges cleanly.
  */
 
 const cache = new Map<string, THREE.BufferGeometry>();
@@ -60,67 +67,7 @@ function flattenVerts(v: number[] | number[][]): number[] {
   return out;
 }
 
-/** Raw vertices/faces → indexed BufferGeometry (no color attribute yet). */
-function meshPartGeometry(mesh: MeshData): THREE.BufferGeometry | null {
-  const verts = flattenVerts(mesh.vertices);
-  const nV = verts.length / 3;
-  if (nV < 3) return null;
-
-  /* faces → triangle index list (3 = tri, 4 = quad → two tris, >4 = fan) */
-  const tris: number[] = [];
-  for (const f of mesh.faces) {
-    if (f.length === 3) tris.push(f[0], f[1], f[2]);
-    else if (f.length === 4) tris.push(f[0], f[1], f[2], f[0], f[2], f[3]);
-    else if (f.length > 4) {
-      for (let i = 2; i < f.length; i++) tris.push(f[0], f[i - 1], f[i]);
-    }
-  }
-  if (!tris.length) return null;
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(verts), 3));
-  geo.setIndex(tris);
-  geo.computeVertexNormals();
-  return geo;
-}
-
-/** Per-vertex color array honoring optional per-face colors. */
-function meshColorArray(mesh: MeshData, fallback: string): Float32Array {
-  const verts = flattenVerts(mesh.vertices);
-  const nV = verts.length / 3;
-  const arr = new Float32Array(nV * 3);
-  _meshColor.set(fallback);
-  for (let i = 0; i < nV; i++) {
-    arr[i * 3] = _meshColor.r;
-    arr[i * 3 + 1] = _meshColor.g;
-    arr[i * 3 + 2] = _meshColor.b;
-  }
-  const faceColors = mesh.colors;
-  if (faceColors?.length) {
-    const c = new THREE.Color();
-    // walk faces exactly like meshPartGeometry: expand to triangles and tint
-    // every vertex the triangle references
-    let fi = 0;
-    for (const f of mesh.faces) {
-      c.set(safeHex(faceColors[fi % faceColors.length], fallback));
-      const write = (vi: number) => {
-        if (vi >= 0 && vi < nV) {
-          arr[vi * 3] = c.r;
-          arr[vi * 3 + 1] = c.g;
-          arr[vi * 3 + 2] = c.b;
-        }
-      };
-      if (f.length === 3) { write(f[0]); write(f[1]); write(f[2]); }
-      else if (f.length === 4) { write(f[0]); write(f[1]); write(f[2]); write(f[0]); write(f[2]); write(f[3]); }
-      else {
-        for (let i = 2; i < f.length; i++) { write(f[0]); write(f[i - 1]); write(f[i]); }
-      }
-      fi++;
-    }
-  }
-  return arr;
-}
-
+/** per-face hex → THREE.Color (falls back to the part tint) */
 function safeHex(v: unknown, fallback: string): string {
   if (typeof v !== "string") return fallback;
   const s = v.trim();
@@ -129,6 +76,65 @@ function safeHex(v: unknown, fallback: string): string {
     return ("#" + s.slice(1).split("").map((c) => c + c).join("")).toLowerCase();
   }
   return fallback;
+}
+
+/** faces → flat triangle index list (3 = tri, 4 = quad → two tris, >4 = fan) */
+function faceTriangles(f: number[]): number[][] {
+  if (f.length === 3) return [f];
+  if (f.length === 4) return [[f[0], f[1], f[2]], [f[0], f[2], f[3]]];
+  const tris: number[][] = [];
+  for (let i = 2; i < f.length; i++) tris.push([f[0], f[i - 1], f[i]]);
+  return tris;
+}
+
+/** Valid 0-based vertex indices inside the face (hand-built defs may skip
+    the parser — every index must exist before we expand anything). */
+function faceIsValid(f: unknown, nV: number): f is number[] {
+  if (!Array.isArray(f) || f.length < 3) return false;
+  for (const vi of f) {
+    if (typeof vi !== "number" || !Number.isInteger(vi) || vi < 0 || vi >= nV) return false;
+  }
+  return true;
+}
+
+/**
+ * Raw vertices/faces → NON-INDEXED BufferGeometry with per-face colors.
+ *
+ * Faces are expanded to explicit triangles (quad → 2 tris, longer → fan) so
+ * every triangle carries its own color — crisp per-face color boundaries,
+ * no bleeding across shared vertices — and the part is non-indexed, which
+ * keeps mergeGeometries() happy no matter which primitives it ends up
+ * combined with (see THE MERGE RULE above).
+ */
+function meshPartGeometry(mesh: MeshData, fallback: string): THREE.BufferGeometry | null {
+  const verts = flattenVerts(mesh.vertices);
+  const nV = verts.length / 3;
+  if (nV < 3) return null;
+
+  const faceColors = mesh.colors?.length ? mesh.colors : null;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  let fi = 0;
+
+  for (const f of mesh.faces) {
+    if (faceIsValid(f, nV)) {
+      _meshColor.set(safeHex(faceColors ? faceColors[fi % faceColors.length] : fallback, fallback));
+      for (const tri of faceTriangles(f)) {
+        for (const vi of tri) {
+          positions.push(verts[vi * 3], verts[vi * 3 + 1], verts[vi * 3 + 2]);
+          colors.push(_meshColor.r, _meshColor.g, _meshColor.b);
+        }
+      }
+    }
+    fi++;
+  }
+  if (positions.length < 9) return null;
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geo.computeVertexNormals(); // flat per-face normals — the faceted low-poly look
+  return geo;
 }
 
 /* ------------------------------- assembly -------------------------------- */
@@ -158,21 +164,41 @@ function gearGeometry(points: number, inner: number): THREE.BufferGeometry {
 
 export function buildShapeGeometry(parts: ShapePart[]): THREE.BufferGeometry | null {
   const geos: THREE.BufferGeometry[] = [];
-  const colorArrays: Float32Array[] = [];
   const col = new THREE.Color();
 
   for (const p of parts) {
     let g: THREE.BufferGeometry | null = null;
-    let colors: Float32Array | null = null;
 
     if (p.primitive === "mesh" && p.mesh) {
-      g = meshPartGeometry(p.mesh);
-      if (g) colors = meshColorArray(p.mesh, p.color);
+      // already non-indexed with its own color attribute
+      g = meshPartGeometry(p.mesh, p.color);
     } else {
       g = partGeometry(p);
+      if (g) {
+        // THE MERGE RULE: normalize every primitive to non-indexed too
+        if (g.index) {
+          const ni = g.toNonIndexed();
+          g.dispose();
+          g = ni;
+        }
+        g.deleteAttribute("uv");
+        if (!g.attributes.normal) g.computeVertexNormals();
+      }
     }
-    if (!g) continue;
-    g.deleteAttribute("uv");
+    if (!g || !g.attributes.position || g.attributes.position.count < 3) continue;
+
+    // flat part tint for primitives (mesh parts already carry colors)
+    if (!g.attributes.color) {
+      col.set(p.color);
+      const count = g.attributes.position.count;
+      const arr = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        arr[i * 3] = col.r;
+        arr[i * 3 + 1] = col.g;
+        arr[i * 3 + 2] = col.b;
+      }
+      g.setAttribute("color", new THREE.BufferAttribute(arr, 3));
+    }
 
     const m = new THREE.Matrix4().compose(
       new THREE.Vector3(p.position[0], p.position[1], p.position[2]),
@@ -186,41 +212,16 @@ export function buildShapeGeometry(parts: ShapePart[]): THREE.BufferGeometry | n
       new THREE.Vector3(p.scale[0], p.scale[1], p.scale[2]),
     );
     g.applyMatrix4(m);
-
-    const count = g.attributes.position.count;
-    if (colors && colors.length === count * 3) {
-      colorArrays.push(colors);
-    } else {
-      col.set(p.color);
-      const arr = new Float32Array(count * 3);
-      for (let i = 0; i < count; i++) {
-        arr[i * 3] = col.r;
-        arr[i * 3 + 1] = col.g;
-        arr[i * 3 + 2] = col.b;
-      }
-      colorArrays.push(arr);
-    }
     geos.push(g);
   }
 
   if (!geos.length) return null;
 
+  // every part is non-indexed with exactly { position, normal, color } →
+  // mergeGeometries can never bail out on attribute/index mismatch again
   const merged = mergeGeometries(geos, false);
-  if (!merged) {
-    geos.forEach((g) => g.dispose());
-    return null;
-  }
-
-  const total = merged.attributes.position.count;
-  const allColors = new Float32Array(total * 3);
-  let off = 0;
-  for (const c of colorArrays) {
-    allColors.set(c, off);
-    off += c.length;
-  }
-  merged.setAttribute("color", new THREE.BufferAttribute(allColors, 3));
-  merged.computeVertexNormals();
   geos.forEach((g) => g.dispose());
+  if (!merged) return null;
   return merged;
 }
 

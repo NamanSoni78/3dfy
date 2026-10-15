@@ -17,32 +17,34 @@ const spaceGrotesk = Space_Grotesk({
   display: "swap",
 });
 
-const SITE = "https://3dfy.app";
+const SITE = "https://3dfy.namansoni.in";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: {
-    default: "3Dfy — 3D Name Physics Playground & Mobile 3D Studio",
+    default: "3Dfy — Infinite AI 3D Worlds, Studio & Name Playground",
     template: "%s · 3Dfy",
   },
   description:
-    "Turn your name into living 3D with real physics — shake, tilt, squeeze & break it. Then direct camera movies in a phone-first 3D studio with keyframes and frame-perfect video rendering.",
+    "Explore infinite AI-generated 3D worlds and render them into film. Build anything with the full 3D studio, import AI shapes and worlds, and turn your name into living 3D physics — all in your browser.",
   keywords: [
-    "3Dfy", "3D name generator", "physics playground", "3D text", "mobile 3D editor",
-    "webGL", "three.js", "rapier physics", "3D studio", "keyframe camera", "video render",
+    "3Dfy", "AI world generator", "infinite 3D world", "3D world builder", "3D studio",
+    "3D name generator", "physics playground", "3D text", "mobile 3D editor",
+    "webGL", "three.js", "rapier physics", "keyframe camera", "video render",
   ],
   applicationName: "3Dfy",
   openGraph: {
     type: "website",
     siteName: "3Dfy",
-    title: "3Dfy — 3D Name Physics Playground & Mobile 3D Studio",
+    title: "3Dfy — Infinite AI 3D Worlds, Studio & Name Playground",
     description:
-      "Real physics 3D names you can shake, squeeze & break. Plus a phone-first mini-Blender with keyframe cameras and frame-perfect video rendering.",
+      "Fly through infinite AI worlds, direct camera films with frame-perfect rendering, and play with your name in real 3D physics.",
+    url: SITE,
   },
   twitter: {
     card: "summary_large_image",
-    title: "3Dfy — 3D Name Physics Playground",
-    description: "Shake it. Break it. Render it. Real 3D physics + a pocket 3D studio.",
+    title: "3Dfy — Infinite AI 3D Worlds",
+    description: "Explore infinite AI worlds. Render them into film. Break your name in 3D physics.",
   },
   robots: { index: true, follow: true },
 };

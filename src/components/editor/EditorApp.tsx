@@ -14,7 +14,7 @@ import { useEditor, loadProject, exportProjectFile, flushSave } from "@/lib/edit
 import { loadAsset } from "@/lib/editor/assets";
 import { takeScreenshot, captureThumbDataUrl, playback, editorCapture } from "@/lib/editor/render";
 import { upsertMeta, listProjects } from "@/lib/editor/store";
-import { controlsRef, frameObjectInView, renderDriver, flyState, loadFlyPrefs, saveFlyPrefs, lookState, loadLookPrefs, saveLookPrefs, worldRuntime } from "@/lib/editor/runtime";
+import { controlsRef, frameObjectInView, renderDriver, flyState, loadFlyPrefs, saveFlyPrefs, lookState, loadLookPrefs, saveLookPrefs, worldRuntime, spawnPointInFront } from "@/lib/editor/runtime";
 import { sfx, haptic } from "@/lib/audio";
 import { FlyTouchPad } from "@/components/shared/FlyTouchPad";
 import { AddMenuPanel } from "./panels/AddMenuPanel";
@@ -154,6 +154,29 @@ export function EditorApp({ projectId }: { projectId: string }) {
     const id = setInterval(() => setWorldStats({ ...worldRuntime.stats }), 500);
     return () => clearInterval(id);
   }, [isWorld]);
+
+  /* dev-only store probe — lets automated QA read live editor state */
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      const w = window as unknown as {
+        __3dfyStore?: typeof useEditor;
+        __3dfyProbe?: () => unknown;
+        __3dfySpawn?: (r: number) => [number, number, number];
+      };
+      w.__3dfyStore = useEditor;
+      w.__3dfySpawn = (r: number) => spawnPointInFront(r);
+      w.__3dfyProbe = () => {
+        const cam = editorCapture.camera;
+        const tgt = controlsRef.current?.target;
+        return {
+          camPos: cam ? Array.from(cam.position.toArray()) : null,
+          camTarget: tgt ? Array.from(tgt.toArray()) : null,
+          hasCamera: !!cam,
+          hasControls: !!controlsRef.current,
+        };
+      };
+    }
+  }, []);
 
   /* first-time director-mode coach */
   useEffect(() => {

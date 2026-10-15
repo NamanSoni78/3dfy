@@ -209,3 +209,74 @@ showed 12,211 changed clusters!).
 stage (sky-band diff = 0) or read camera/object state directly from the
 project store (localStorage). A no-interaction control pair is now part of
 the diff protocol.
+
+## #19 — AI imports with gear/star/heart parts spawned as an INVISIBLE entity (V1.6, user-reported)
+**Symptom**: pasting a complex 3dsc-2 shape ("Ultimate Pro PC Rig" — 44 parts:
+10 raw meshes + 4 gears + rings/capsules/cylinders) added the object to the
+scene list, but nothing rendered in the viewport.
+**Root cause (proven)**: `three`'s `mergeGeometries()` **refuses to mix
+indexed and non-indexed geometries** — it logs
+"All geometries must have compatible attributes; make sure index attribute
+exists among all geometries, or in none of them" and returns `null`.
+`gear`/`star`/`heart` are `ExtrudeGeometry` (NON-indexed); `box`, `cylinder`,
+`ring`, `capsule` and raw mesh parts are indexed. Any import mixing them →
+`buildShapeGeometry()` = null → `ShapeView` rendered nothing. Pure-mesh
+imports (Gem Rocket) worked, which is why V1.5 QA missed it.
+**Fix** (`src/lib/shapes/build.ts` v2.1 — "THE MERGE RULE"): every part is
+normalized to a NON-INDEXED geometry before merging:
+- raw mesh parts are expanded to explicit triangles (quad → 2 tris, fan) with
+  per-face colors baked per triangle — crisp color boundaries, no bleeding at
+  shared vertices, flat faceted normals (the low-poly look);
+- primitive parts go through `toNonIndexed()` (uv deleted, color filled);
+- every part carries exactly `{position, normal, color}` → merge can never
+  bail. Per-face color handling also moved from a separate vertex-walk into
+  the same expansion pass.
+**Verified**: `scripts/test-shape-build.ts` (bun) — reproduces the null merge
+with a raw box+gear pair, then builds the user's EXACT 44-part PC-rig code:
+32,556 verts, bbox 3.92×2.00×1.62 m, neon cyan+pink vertex colors present,
+Gem Rocket + pure-gear + pure-primitive regressions green. Browser-imported
+in both studios → VLM: desk/monitor/tower/fans visible, no glitches.
+
+## #20 — New objects spawned at the world origin, not in front of you (V1.6, user-reported)
+**Symptom**: adding an object after flying anywhere placed it at `[0, 0.8, 0]`
+(AddMenu) / `[0, 1.2, 0]` (shape import) — potentially hundreds of meters
+away; the auto-frame "nudge" then often considered the distant speck
+"on-screen" and left the camera alone → object effectively invisible.
+**Fix**: `runtime.ts` gains `cameraRef` (fed by the EditorScene capture
+bridge) + `spawnPointInFront(radius)` — a point along the camera's view
+direction at `clamp(radius * 2.7, 2.6, 16)` meters, **lifted above terrain**
+via `worldRuntime.manager.heightAt` so it can never bury itself in a hill.
+Long-press placement still wins when set (explicit user intent). Callers:
+AddMenuPanel (text 1.7 / shapes 1.1 / images 1.3 / lights offset),
+ImportShapeDialog (`estimateRadius(parts) * 1.4` — the object's real size
+sets the distance).
+**Verified**: store probes — text spawns `[0, 2.25, -4.59]`, PC rig
+`[0, 2.07, -10.22]` in front of a camera at `[0, 2.4, 0]` (horizon);
+VLM: "HELLO readable, center ahead"; mobile FAB flow spawns identically.
+
+## #21 — World entry camera stared straight down at the spawn point (V1.6)
+**Symptom**: opening a world project put the camera at `[0, y+9, 0]` with the
+orbit target at the spawn `[0, y+1.5, -7]` — but when `controlsRef` wasn't
+mounted yet the target stayed `[0, 1, 0]` → a near-vertical top-down view.
+3D text seen from above reads as "pink blocks in a row" (VLM misread real
+HELLO letters), and spawn-in-front degenerated to "below the camera".
+**Fix** (`WorldStage.tsx`): spawn at eye level `y + 2.4`, aim the orbit target
+down-range `[0, eye - 0.7, -22]` (horizon), and retry the aim on rAF frames
+until `controlsRef.current` exists (≤30 frames) — mount-order immune.
+**Verified**: probe `camPos [0,2.4,0] → camTarget [0,1.7,-22]`; screenshots
+show terrain stretching to a night-sky horizon, objects ahead at eye level.
+
+## #22 — QA tooling notes for this codebase (V1.6, tooling)
+1. `agent-browser eval` shares one JS scope across calls — top-level `const`
+   redeclared in a second eval throws. Always wrap probes in `(() => { ... })()`.
+2. `find text "…" click` on Add-sheet tiles is coordinate-flaky while the
+   sheet is still animating; the deterministic pattern is a DOM dispatch:
+   `Array.from(document.querySelectorAll('button')).find(b =>
+   b.textContent.includes('3D Text')).click()` (React synthetic events fire
+   from `.click()` fine).
+3. The sandbox reaps background processes between shell invocations — a dev
+   server only lives inside one invocation; QA scripts must start it, wait
+   for the curl, run the whole browser flow, then let it die.
+4. Live state ground truth: EditorApp exposes `window.__3dfyStore`
+   (zustand), `__3dfyProbe()` (camera + controls) and `__3dfySpawn(r)`
+   in development only — far more reliable than screenshot forensics.

@@ -1,16 +1,17 @@
 {
-  "name": "nextjs_tailwind_shadcn_ts",
-  "version": "0.2.1",
+  "name": "3dfy",
+  "version": "1.6.0",
+  "description": "Infinite AI 3D worlds, a full browser 3D studio, and a physics name playground — Next.js + three.js/R3F. Hosted at 3dfy.namansoni.in",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
     "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
-    "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint .",
-    "db:push": "prisma db push --accept-data-loss",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:push": "echo '3Dfy is fully client-side — no database to push.'",
+    "db:generate": "echo '3Dfy is fully client-side — no database to generate.'",
+    "db:migrate": "echo '3Dfy is fully client-side — no database to migrate.'",
+    "db:reset": "echo '3Dfy is fully client-side — no database to reset.'"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

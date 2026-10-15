@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { useEditor } from "@/lib/editor/store";
 import { makeImage, makeLight, makeShape, makeText } from "@/lib/editor/defaults";
 import { SHAPE_KINDS } from "@/lib/three/geometry";
-import { pendingSpawn } from "@/lib/editor/runtime";
+import { pendingSpawn, spawnPointInFront } from "@/lib/editor/runtime";
 import { fileToDataUrl } from "@/lib/capture";
 import { saveAsset } from "@/lib/editor/assets";
 import { sfx, haptic } from "@/lib/audio";
@@ -20,19 +20,24 @@ export function AddMenuPanel({ open, onOpenChange }: { open: boolean; onOpenChan
   const fileRef = useRef<HTMLInputElement>(null);
   const [importOpen, setImportOpen] = useState(false);
 
-  const spawnPoint = (): [number, number, number] =>
-    pendingSpawn.point ?? [0, 0.8, 0];
+  /** Long-press point wins (exact placement); otherwise new objects spawn
+   *  right IN FRONT of the camera — always visible, wherever you flew. */
+  const spawnPoint = (radius = 1.1): [number, number, number] =>
+    pendingSpawn.point ?? spawnPointInFront(radius);
 
   function add(kind: "text" | "light"): void {
-    if (kind === "text") addObject(makeText("HELLO", spawnPoint()));
-    else addObject(makeLight([spawnPoint()[0] + 1.5, spawnPoint()[1] + 2, spawnPoint()[2] + 1]));
+    if (kind === "text") addObject(makeText("HELLO", spawnPoint(1.7)));
+    else {
+      const p = spawnPoint(1.4);
+      addObject(makeLight([p[0] + 1.2, p[1] + 1.8, p[2] + 0.8]));
+    }
     onOpenChange(false);
     sfx.play("spawn");
     haptic(14);
   }
 
   function addShape(shape: (typeof SHAPE_KINDS)[number]["id"]): void {
-    addObject(makeShape(shape, spawnPoint()));
+    addObject(makeShape(shape, spawnPoint(1.1)));
     onOpenChange(false);
     sfx.play("spawn");
     haptic(14);
@@ -45,7 +50,7 @@ export function AddMenuPanel({ open, onOpenChange }: { open: boolean; onOpenChan
       await saveAsset(id, url);
       registerAsset(id, url);
       registerAssetMeta(id, { name: file.name, w, h });
-      addObject(makeImage(id, w / h, spawnPoint()));
+      addObject(makeImage(id, w / h, spawnPoint(1.3)));
       onOpenChange(false);
       sfx.play("spawn");
       haptic(14);
@@ -63,7 +68,7 @@ export function AddMenuPanel({ open, onOpenChange }: { open: boolean; onOpenChan
           <SheetDescription>
             {pendingSpawn.point
               ? "Spawning where you long-pressed. Long-press anywhere on the ground to place things exactly."
-              : "Tip: long-press anywhere on the ground to spawn right there."}
+              : "New objects appear right in front of you. Long-press the ground to place them exactly instead."}
           </SheetDescription>
         </SheetHeader>
 

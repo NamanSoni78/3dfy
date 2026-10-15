@@ -2,15 +2,15 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "3Dfy — 3D Name Physics Playground & Mobile 3D Studio",
+    name: "3Dfy — Infinite AI 3D Worlds & 3D Studio",
     short_name: "3Dfy",
     description:
-      "Real-physics 3D names you can shake, squeeze & break — plus a phone-first 3D mini-Blender with keyframe camera movies.",
+      "Explore infinite AI-generated 3D worlds, build with a full 3D studio, and play with your name in real 3D physics.",
     start_url: "/",
     display: "standalone",
-    background_color: "#fff6fb",
-    theme_color: "#ff5fc1",
-    orientation: "portrait",
+    background_color: "#0e1116",
+    theme_color: "#0e1116",
+    orientation: "any",
     icons: [
       { src: "/icon.svg", sizes: "any", type: "image/svg+xml" },
     ],
