@@ -1,0 +1,181 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-panel: var(--panel);
+  --color-elevated: var(--elevated);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-display: var(--font-display), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-sans), "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * 3Dfy professional studio theme — dark graphite chrome, single violet accent.
+ * 3D content stays colorful; app chrome stays calm, precise, out of the way.
+ */
+:root {
+  --radius: 0.625rem;
+  --background: #0e1116;
+  --foreground: #edeff4;
+  --card: #151a21;
+  --card-foreground: #edeff4;
+  --popover: #181d26;
+  --popover-foreground: #edeff4;
+  --primary: #7c5cff;
+  --primary-foreground: #ffffff;
+  --secondary: #20262f;
+  --secondary-foreground: #c6cdd8;
+  --muted: #1a1f27;
+  --muted-foreground: #8b94a3;
+  --accent: #1c2447;
+  --accent-foreground: #b9a8ff;
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
+  --border: #262d38;
+  --input: #2a323e;
+  --ring: #7c5cff;
+  --panel: #141922;
+  --elevated: #1d232d;
+}
+
+.dark {
+  --background: #0e1116;
+  --foreground: #edeff4;
+  --card: #151a21;
+  --card-foreground: #edeff4;
+  --popover: #181d26;
+  --popover-foreground: #edeff4;
+  --primary: #7c5cff;
+  --primary-foreground: #ffffff;
+  --secondary: #20262f;
+  --secondary-foreground: #c6cdd8;
+  --muted: #1a1f27;
+  --muted-foreground: #8b94a3;
+  --accent: #1c2447;
+  --accent-foreground: #b9a8ff;
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
+  --border: #262d38;
+  --input: #2a323e;
+  --ring: #7c5cff;
+  --panel: #141922;
+  --elevated: #1d232d;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    overscroll-behavior-y: none;
+    font-family: var(--font-sans);
+  }
+}
+
+/* ---------------------------- studio utilities --------------------------- */
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Slim pro scrollbars inside panels */
+.pro-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.pro-scroll::-webkit-scrollbar-thumb {
+  background: #2e3641;
+  border-radius: 999px;
+}
+.pro-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Text accent used for wordmark + key numbers */
+.text-accent {
+  color: #a08bff;
+}
+
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.55rem;
+  height: 1.55rem;
+  padding: 0 0.3rem;
+  border-radius: 0.375rem;
+  border: 1px solid #333b48;
+  border-bottom-width: 2px;
+  background: #1d232d;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #c6cdd8;
+}
+
+/* Subtle top glow used on the marketing hero only */
+.hero-glow {
+  background:
+    radial-gradient(60% 42% at 50% 0%, rgba(124, 92, 255, 0.16) 0%, transparent 70%),
+    radial-gradient(38% 30% at 82% 8%, rgba(56, 189, 248, 0.10) 0%, transparent 70%);
+}
+
+@keyframes rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.rec-dot {
+  animation: rec-pulse 1.1s ease-in-out infinite;
+}
+
+input[type="range"] {
+  touch-action: pan-y;
+}
+
+/* Number inputs: hide spinners for clean steppers */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
